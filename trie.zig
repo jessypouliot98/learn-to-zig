@@ -1,37 +1,39 @@
+// https://github.com/Koura/algorithms/blob/main/search_trees/trie.zig
+
 const std = @import("std");
 const expect = std.testing.expect;
 const Allocator = std.mem.Allocator;
 
 const TrieNode = struct {
-  nodes: std.AutoHashMap(u8, *TrieNode),
-  isEnd: bool,
+    nodes: std.AutoHashMap(u8, *TrieNode),
+    isEnd: bool,
 
-  pub fn init(allocator: *const Allocator) !*TrieNode {
-    var node = try allocator.create(TrieNode);
-    node.nodes = std.AutoHashMap(u8, *TrieNode).init(allocator.*);
-    node.isEnd = false;
-    return node;
-  }
+    pub fn init(allocator: *const Allocator) !*TrieNode {
+        var node = try allocator.create(TrieNode);
+        node.nodes = std.AutoHashMap(u8, *TrieNode).init(allocator.*);
+        node.isEnd = false;
+        return node;
+    }
 };
 
 const Trie = struct {
-  root: *TrieNode,
+    root: *TrieNode,
 
-  pub fn init(allocator: *const Allocator) !Trie {
-    const node = try TrieNode.init(allocator);
-    return Trie{ .root = node };
-  }
+    pub fn init(allocator: *const Allocator) !Trie {
+        const node = try TrieNode.init(allocator);
+        return Trie{ .root = node };
+    }
 
-  pub fn insert(self: *Trie, key: []const u8, allocator: *const Allocator) !void {
-      var node = self.root;
-      for (key) |char| {
-          if (!node.nodes.contains(char)) {
-              const new_node = try TrieNode.init(allocator);
-              try node.nodes.put(char, new_node);
-          }
-          node = node.nodes.get(char).?;
-      }
-      node.isEnd = true;
+    pub fn insert(self: *Trie, key: []const u8, allocator: *const Allocator) !void {
+        var node = self.root;
+        for (key) |char| {
+            if (!node.nodes.contains(char)) {
+                const new_node = try TrieNode.init(allocator);
+                try node.nodes.put(char, new_node);
+            }
+            node = node.nodes.get(char).?;
+        }
+        node.isEnd = true;
     }
 
     //Returns true if the word is present in the trie
@@ -46,7 +48,6 @@ const Trie = struct {
         }
         return node.isEnd;
     }
-
 };
 
 test "search empty tree" {
