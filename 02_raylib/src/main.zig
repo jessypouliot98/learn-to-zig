@@ -8,74 +8,56 @@ const BLACK = raylib.Color{ .r = 0x0, .g = 0x0, .b = 0x0, .a = 0xFF };
 const WHITE = raylib.Color{ .r = 0xFF, .g = 0xFF, .b = 0xFF, .a = 0xFF };
 const RED = raylib.Color{ .r = 0xFF, .g = 0x0, .b = 0x0, .a = 0xFF };
 
-const Position = struct {
-    x: i32,
-    y: i32,
-};
-
 const Player = struct {
     pub const WIDTH = 100;
     pub const HEIGHT = 20;
 
-    position: Position = Position{
-        .x = 0,
-        .y = 0,
-    },
+    position_x: i32,
+    position_y: i32,
 
-    pub fn update(self: *Player) void {
+    pub fn init(x: i32, y: i32) Player {
+        return Player{
+            .position_x = x,
+            .position_y = y,
+        };
+    }
+
+    pub fn update(self: Player) void {
         const speed = 10;
         if (raylib.IsKeyDown(raylib.KEY_S)) {
-            self.position.y = @min(600 - Player.HEIGHT, self.position.y + speed);
+            self.position_y = @min(600 - Player.HEIGHT, self.position_y + speed);
         }
         if (raylib.IsKeyDown(raylib.KEY_W)) {
-            self.position.y = @max(0, self.position.y - speed);
+            self.position_y = @max(0, self.position_y - speed);
         }
         if (raylib.IsKeyDown(raylib.KEY_D)) {
-            self.position.x = @min(800 - Player.WIDTH, self.position.x + speed);
+            self.position_x = @min(800 - Player.WIDTH, self.position_x + speed);
         }
         if (raylib.IsKeyDown(raylib.KEY_A)) {
-            self.position.x = @max(0, self.position.x - speed);
+            self.position_x = @max(0, self.position_x - speed);
         }
     }
 
     pub fn draw(self: Player) void {
-        raylib.DrawRectangle(@intCast(self.position.x), @intCast(self.position.y), Player.WIDTH, Player.HEIGHT, RED);
-        print("x: {d}; y: {d};\n", .{ self.position.x, self.position.y });
+        raylib.DrawRectangle(@intCast(self.position_x), @intCast(self.position_y), Player.WIDTH, Player.HEIGHT, RED);
+        print("x: {d}; y: {d};\n", .{ self.position_x, self.position_y });
     }
-};
-
-const Brick = struct {
-    pub const WIDTH = 100;
-    pub const HEIGHT = 20;
-
-    position: Position = Position{
-        .x = 0,
-        .y = 0,
-    },
 };
 
 const Game = struct {
     width: u32,
     height: u32,
     target_fps: u8 = 60,
-    player: *Player,
-    brick: *Brick,
+    player: Player,
 
     pub fn init(width: u32, height: u32) Game {
-        var player = Player{
-            .position = Position{
-                .x = @intCast(width / 2),
-                .y = @intCast(height / 2),
-            },
-        };
-
-        var brick = Brick{};
-
         const game = Game{
             .width = width,
             .height = height,
-            .player = &player,
-            .brick = &brick,
+            .player = Player.init(
+                @intCast(width / 2),
+                @intCast(height / 2),
+            ),
         };
         return game;
     }
