@@ -8,6 +8,8 @@ const BLACK = raylib.Color{ .r = 0x0, .g = 0x0, .b = 0x0, .a = 0xFF };
 const WHITE = raylib.Color{ .r = 0xFF, .g = 0xFF, .b = 0xFF, .a = 0xFF };
 const RED = raylib.Color{ .r = 0xFF, .g = 0x0, .b = 0x0, .a = 0xFF };
 
+const Ball = struct {};
+
 const Player = struct {
     pub const WIDTH = 100;
     pub const HEIGHT = 20;
@@ -41,10 +43,15 @@ const Game = struct {
     height: u32 = 600,
     target_fps: u8 = 60,
     player: *Player,
+    ball: *Ball,
 
     pub fn init() Game {
         var player = Player{};
-        const game = Game{ .player = &player };
+        var ball = Ball{};
+        const game = Game{
+            .player = &player,
+            .ball = &ball,
+        };
         game.player.*.position_x = @intCast(game.width / 2);
         game.player.*.position_y = @intCast(game.height / 2);
         return game;
