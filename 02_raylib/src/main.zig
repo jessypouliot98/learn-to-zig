@@ -65,9 +65,12 @@ const Box2D = struct {
 };
 
 const Player = struct {
-    width: f32 = 80,
-    height: f32 = 10,
-    x: f32 = Game.width / 2 - (80 / 2),
+    const Width: f32 = 120;
+    const Height: f32 = 15;
+
+    width: f32 = Player.Width,
+    height: f32 = Player.Height,
+    x: f32 = Game.width / 2 - (Player.Width / 2) - 10,
     y: f32 = Game.height,
 
     pub fn get_box_2d(self: Player) Box2D {
@@ -105,11 +108,14 @@ const Ball = struct {
     size: f32 = 8.0,
 
     pub fn create() Ball {
+        const angle_deg: f32 = 190;
+        const angle_rad: f32 = std.math.degreesToRadians(angle_deg);
+        std.debug.print("start a: {d}\n", .{angle_deg});
         return Ball{
             .x = Game.width / 2,
             .y = Game.height / 2,
-            .hspeed = 0,
-            .vspeed = Game.speed,
+            .hspeed = std.math.cos(angle_rad) * Game.speed,
+            .vspeed = std.math.sin(angle_rad) * Game.speed,
         };
     }
 
@@ -122,6 +128,15 @@ const Ball = struct {
         };
     }
 
+    fn get_angle_rad(self: Ball) f32 {
+        return std.math.asin(self.vspeed / Game.speed);
+    }
+
+    fn apply_speed_from_angle(self: *Ball, angle_rad: f32) void {
+        self.vspeed = std.math.sin(angle_rad) * Game.speed;
+        self.hspeed = std.math.cos(angle_rad) * Game.speed;
+    }
+
     pub fn update(self: *Ball, game: Game) void {
         self.x += raylib.GetFrameTime() * self.hspeed;
         self.y += raylib.GetFrameTime() * self.vspeed;
@@ -132,18 +147,34 @@ const Ball = struct {
 
         const game_border_intersection = box.get_border_intersection(game_box);
         if (game_border_intersection != null) {
+            const angle = self.get_angle_rad();
             switch (game_border_intersection.?) {
-                .top, .right, .left => {
-                    self.vspeed = -self.vspeed;
-                    self.hspeed = -self.hspeed;
+                .top => {
+                    const adjustment_angle: f32 = -std.math.pi * 0.5;
+                    const i_angle: f32 = angle + adjustment_angle;
+                    const r_angle: f32 = (std.math.pi * 0.5) - i_angle;
+                    std.debug.print("[top] i: {d}; r: {d}\n", .{ std.math.radiansToDegrees(i_angle), std.math.radiansToDegrees(r_angle) });
+                    self.apply_speed_from_angle(r_angle + adjustment_angle);
+                },
+                .left => {
+                    const adjustment_angle: f32 = -std.math.pi;
+                    const i_angle: f32 = angle + adjustment_angle;
+                    const r_angle: f32 = (-std.math.pi * 0.5) - i_angle;
+                    std.debug.print("[left] i: {d}; r: {d}\n", .{ std.math.radiansToDegrees(i_angle), std.math.radiansToDegrees(r_angle) });
+                    self.apply_speed_from_angle(r_angle + adjustment_angle);
+                },
+                .right => {
+                    const adjustment_angle: f32 = -std.math.pi;
+                    const i_angle: f32 = angle + adjustment_angle;
+                    const r_angle: f32 = (-std.math.pi * 0.5) - i_angle;
+                    std.debug.print("[right] i: {d}; r: {d}\n", .{ std.math.radiansToDegrees(i_angle), std.math.radiansToDegrees(r_angle) });
+                    self.apply_speed_from_angle(r_angle + adjustment_angle);
                 },
                 else => {},
             }
-        }
-
-        if (box.has_intersection(player_box)) {
-            self.vspeed = -self.vspeed;
-            self.hspeed = -self.hspeed;
+        } else if (box.has_intersection(player_box)) {
+            const angle: f32 = std.math.atan2(box.center_y - player_box.center_y - 30, box.center_x - player_box.center_x);
+            self.apply_speed_from_angle(angle);
         }
     }
 
@@ -153,10 +184,14 @@ const Ball = struct {
 };
 
 const Game = struct {
-    pub const fps: u8 = 120;
+    pub const fps: u16 = 60;
     pub const width: u16 = 800;
     pub const height: u16 = 600;
-    pub const speed: f32 = 200;
+    pub const speed: f32 = 300;
+
+    pub const Error = error{
+        GameOver,
+    };
 
     player: *Player,
     ball: *Ball,
