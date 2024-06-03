@@ -6,6 +6,8 @@ const raylib = @cImport({
     @cInclude("raylib.h");
 });
 
+const HALF_PI: f32 = std.math.pi / 2.0;
+
 const Bounds = struct {
     x1: f32,
     x2: f32,
@@ -106,9 +108,10 @@ const Ball = struct {
     hspeed: f32,
     vspeed: f32,
     size: f32 = 8.0,
+    is_colliding: bool = false,
 
     pub fn create() Ball {
-        const angle_deg: f32 = 190;
+        const angle_deg: f32 = 270;
         const angle_rad: f32 = std.math.degreesToRadians(angle_deg);
         std.debug.print("start a: {d}\n", .{angle_deg});
         return Ball{
@@ -129,7 +132,10 @@ const Ball = struct {
     }
 
     fn get_angle_rad(self: Ball) f32 {
-        return std.math.asin(self.vspeed / Game.speed);
+        var angle: f32 = std.math.acos(self.hspeed / Game.speed);
+        while (angle < 0) angle += std.math.pi * 2;
+        while (angle > std.math.pi * 2) angle -= std.math.pi * 2;
+        return angle;
     }
 
     fn apply_speed_from_angle(self: *Ball, angle_rad: f32) void {
@@ -145,36 +151,45 @@ const Ball = struct {
         const game_box = game.get_box_2d();
         const player_box = game.player.get_box_2d();
 
+        if (self.is_colliding) {
+            self.is_colliding = box.has_intersection(player_box) or box.get_border_intersection(game_box) != null;
+            return;
+        }
+
+        if (box.has_intersection(player_box)) {
+            self.is_colliding = true;
+            const angle: f32 = std.math.atan2(box.center_y - player_box.center_y - 30, box.center_x - player_box.center_x);
+            std.debug.print("player: {d}\n", .{std.math.radiansToDegrees(angle)});
+            self.apply_speed_from_angle(angle);
+            return;
+        }
+
         const game_border_intersection = box.get_border_intersection(game_box);
         if (game_border_intersection != null) {
+            self.is_colliding = true;
             const angle = self.get_angle_rad();
             switch (game_border_intersection.?) {
                 .top => {
-                    const adjustment_angle: f32 = -std.math.pi * 0.5;
-                    const i_angle: f32 = angle + adjustment_angle;
-                    const r_angle: f32 = (std.math.pi * 0.5) - i_angle;
+                    const i_angle: f32 = HALF_PI - angle;
+                    const r_angle: f32 = HALF_PI - i_angle;
                     std.debug.print("[top] i: {d}; r: {d}\n", .{ std.math.radiansToDegrees(i_angle), std.math.radiansToDegrees(r_angle) });
-                    self.apply_speed_from_angle(r_angle + adjustment_angle);
+                    self.apply_speed_from_angle(r_angle);
                 },
                 .left => {
-                    const adjustment_angle: f32 = -std.math.pi;
-                    const i_angle: f32 = angle + adjustment_angle;
-                    const r_angle: f32 = (-std.math.pi * 0.5) - i_angle;
+                    const i_angle: f32 = (HALF_PI * 2) - angle;
+                    const r_angle: f32 = HALF_PI - i_angle;
                     std.debug.print("[left] i: {d}; r: {d}\n", .{ std.math.radiansToDegrees(i_angle), std.math.radiansToDegrees(r_angle) });
-                    self.apply_speed_from_angle(r_angle + adjustment_angle);
+                    self.apply_speed_from_angle(r_angle);
                 },
                 .right => {
-                    const adjustment_angle: f32 = -std.math.pi;
-                    const i_angle: f32 = angle + adjustment_angle;
-                    const r_angle: f32 = (-std.math.pi * 0.5) - i_angle;
+                    const i_angle: f32 = (HALF_PI * 4) - angle;
+                    const r_angle: f32 = HALF_PI - i_angle;
                     std.debug.print("[right] i: {d}; r: {d}\n", .{ std.math.radiansToDegrees(i_angle), std.math.radiansToDegrees(r_angle) });
-                    self.apply_speed_from_angle(r_angle + adjustment_angle);
+                    self.apply_speed_from_angle(r_angle);
                 },
                 else => {},
             }
-        } else if (box.has_intersection(player_box)) {
-            const angle: f32 = std.math.atan2(box.center_y - player_box.center_y - 30, box.center_x - player_box.center_x);
-            self.apply_speed_from_angle(angle);
+            return;
         }
     }
 
