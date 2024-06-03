@@ -1,4 +1,4 @@
-// adaptation to zig 0.12.0 from https://github.com/psywave-games/pong-zig/blob/master/src/main.zig
+// adaptation to zig 0.12.0, then converted to a brick breaker game from https://github.com/psywave-games/pong-zig/blob/master/src/main.zig
 
 const std = @import("std");
 
@@ -102,6 +102,30 @@ const Player = struct {
     }
 };
 
+const Brick = struct {
+    const Width: f32 = Game.width / Game.brick_cols;
+    const Height: f32 = Game.height / Game.brick_rows;
+
+    width: f32 = Brick.Width,
+    height: f32 = Brick.Height,
+    x: f32,
+    y: f32,
+
+    pub fn get_box_2d(self: Brick) Box2D {
+        return Box2D{
+            .center_x = self.x + self.width / 2,
+            .center_y = self.y + self.height / 2,
+            .width = self.width,
+            .height = self.height,
+        };
+    }
+
+    fn draw(self: Brick) void {
+        raylib.DrawRectangle(@intFromFloat(self.x), @intFromFloat(self.y), @intFromFloat(self.width), @intFromFloat(self.height), raylib.WHITE);
+        raylib.DrawRectangleLines(@intFromFloat(self.x), @intFromFloat(self.y), @intFromFloat(self.width), @intFromFloat(self.height), raylib.BLACK);
+    }
+};
+
 const Ball = struct {
     x: f32,
     y: f32,
@@ -164,6 +188,17 @@ const Ball = struct {
             return;
         }
 
+        for (game.bricks.items, 0..) |brick, i| {
+            if (box.has_intersection(brick.get_box_2d())) {
+                _ = game.bricks.orderedRemove(i);
+                const angle = self.get_angle_rad();
+                const i_angle: f32 = HALF_PI - angle;
+                const r_angle: f32 = HALF_PI - i_angle;
+                std.debug.print("[brick] i: {d}; r: {d}\n", .{ std.math.radiansToDegrees(i_angle), std.math.radiansToDegrees(r_angle) });
+                self.apply_speed_from_angle(r_angle);
+            }
+        }
+
         const game_border_intersection = box.get_border_intersection(game_box);
         if (game_border_intersection != null) {
             self.is_colliding = true;
@@ -203,22 +238,45 @@ const Game = struct {
     pub const width: u16 = 800;
     pub const height: u16 = 600;
     pub const speed: f32 = 300;
+    pub const brick_cols: u8 = 8;
+    pub const brick_rows: u8 = 14;
+    pub const brick_rows_used: u8 = 5;
 
     pub const Error = error{
         GameOver,
     };
 
+    allocator: std.mem.Allocator,
     player: *Player,
     ball: *Ball,
+    bricks: *std.ArrayList(Brick),
 
-    pub fn app() void {
+    pub fn app(allocator: std.mem.Allocator) !void {
         raylib.InitWindow(Game.width, Game.height, "Block Breaker");
         raylib.SetTargetFPS(Game.fps);
 
         var player = Player{};
         var ball = Ball.create();
+        var bricks = std.ArrayList(Brick).init(allocator);
+        defer bricks.deinit();
 
-        var application = Game{ .player = &player, .ball = &ball };
+        var row: i8 = 0;
+        while (row < Game.brick_rows_used) : (row += 1) {
+            var col: i8 = 0;
+            while (col < Game.brick_cols) : (col += 1) {
+                try bricks.append(Brick{
+                    .x = @as(f32, @floatFromInt(col)) * Brick.Width,
+                    .y = @as(f32, @floatFromInt(row)) * Brick.Height,
+                });
+            }
+        }
+
+        var application = Game{
+            .allocator = allocator,
+            .player = &player,
+            .ball = &ball,
+            .bricks = &bricks,
+        };
 
         while (!raylib.WindowShouldClose()) {
             application.update();
@@ -241,6 +299,7 @@ const Game = struct {
     fn update(self: Game) void {
         self.player.update();
         self.ball.update(self);
+        std.debug.print("Bricks left {d}\n", .{self.bricks.items.len});
     }
 
     fn draw(self: Game) void {
@@ -250,9 +309,15 @@ const Game = struct {
         raylib.ClearBackground(raylib.BLACK);
         self.player.draw();
         self.ball.draw();
+        for (self.bricks.items) |brick| {
+            brick.draw();
+        }
     }
 };
 
 pub fn main() anyerror!void {
-    Game.app();
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    try Game.app(allocator);
 }
