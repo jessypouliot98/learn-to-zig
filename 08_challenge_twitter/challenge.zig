@@ -33,8 +33,9 @@ const Twitter = struct {
         try self.tweets_user_map.put(tweet_id, user_id);
     }
 
-    pub fn getNewsFeed(self: *Twitter, user_id: u32) ![]u32 {
+    pub fn getNewsFeed(self: *Twitter, allocator: Allocator, user_id: u32) ![]u32 {
         var feed_list = std.ArrayList(u32).init(self.allocator);
+        defer feed_list.deinit();
 
         const followees = self.follower_followees_map.get(user_id);
 
@@ -47,12 +48,7 @@ const Twitter = struct {
             }
         }
 
-        if (feed_list.items.len <= 1) {
-            return feed_list.items;
-        }
-
-        const ordered_feed = try self.allocator.alloc(u32, feed_list.items.len);
-        std.debug.print("hello\n", .{});
+        const ordered_feed = try allocator.alloc(u32, feed_list.items.len);
 
         for (feed_list.items, 1..) |item, i| {
             ordered_feed[feed_list.items.len - i] = item;
@@ -76,16 +72,15 @@ const Twitter = struct {
 };
 
 test "challenge" {
-    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena.deinit();
-    const allocator = arena.allocator();
+    const allocator = std.testing.allocator;
 
     var twitter = Twitter.init(allocator);
     defer twitter.deinit();
 
     try twitter.postTweet(1, 5);
     {
-        const result = try twitter.getNewsFeed(1);
+        const result = try twitter.getNewsFeed(allocator, 1);
+        defer allocator.free(result);
         try std.testing.expectEqualSlices(
             u32,
             &.{5},
@@ -96,7 +91,8 @@ test "challenge" {
     try twitter.follow(1, 2);
     try twitter.postTweet(2, 6);
     {
-        const result = try twitter.getNewsFeed(1);
+        const result = try twitter.getNewsFeed(allocator, 1);
+        defer allocator.free(result);
         try std.testing.expectEqualSlices(
             u32,
             &.{ 6, 5 },
@@ -106,7 +102,8 @@ test "challenge" {
 
     twitter.unfollow(1, 2);
     {
-        const result = try twitter.getNewsFeed(1);
+        const result = try twitter.getNewsFeed(allocator, 1);
+        defer allocator.free(result);
         try std.testing.expectEqualSlices(
             u32,
             &.{5},
